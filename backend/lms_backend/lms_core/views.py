@@ -5,11 +5,16 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import action
 from django.db.models import Count, Q
 
-from .models import Category, Course, Enrollment
+from .models import Category, Course, Lesson, Enrollment, PaymentRequest
 from authentication.models import User
 from .serializers import (
-    CategorySerializer, CourseSerializer, CourseCreateUpdateSerializer,
-    EnrollmentSerializer, DashboardStatsSerializer
+    CategorySerializer,
+    CourseSerializer,
+    CourseCreateUpdateSerializer,
+    LessonSerializer,
+    EnrollmentSerializer,
+    PaymentRequestSerializer,
+    DashboardStatsSerializer
 )
 from .permissions import IsAdminOrInstructor, IsAdmin, IsStudent, IsOwnerOrAdmin
 
@@ -81,6 +86,63 @@ class CourseViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+
+import uuid
+
+class LessonViewSet(viewsets.ModelViewSet):
+    queryset = Lesson.objects.all()
+    serializer_class = LessonSerializer
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [IsAuthenticated]
+        else:
+            permission_classes = [IsAuthenticated, IsAdminOrInstructor]
+
+        return [permission() for permission in permission_classes]
+
+    def get_queryset(self):
+        queryset = Lesson.objects.select_related('course').order_by(
+            'course', 'order'
+        )
+
+        course_id = self.request.query_params.get('course')
+
+        if course_id:
+            queryset = queryset.filter(course_id=course_id)
+
+        user = self.request.user
+
+        # Admins and instructors can access lessons
+        if user.is_authenticated and user.role in ['admin', 'instructor']:
+            return queryset
+
+        # Students can only access lessons from courses
+        # they are enrolled in
+        if user.is_authenticated and user.role == 'student':
+            queryset = queryset.filter(
+                course__enrollments__student=user,
+                course__enrollments__status='active'
+            )
+            return queryset
+
+        return Lesson.objects.none()
+
+    def get_object(self):
+        queryset = self.get_queryset()
+
+        pk = self.kwargs.get(self.lookup_url_kwarg or self.lookup_field)
+
+        try:
+            pk = uuid.UUID(pk)
+        except (ValueError, TypeError, AttributeError):
+            from rest_framework.exceptions import NotFound
+            raise NotFound('Invalid lesson ID.')
+
+        return queryset.get(pk=pk)
+
+
+
 class EnrollmentViewSet(viewsets.ModelViewSet):
     queryset = Enrollment.objects.all()
     serializer_class = EnrollmentSerializer
@@ -98,6 +160,118 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         serializer.save(student=self.request.user)
+
+
+class PaymentRequestViewSet(viewsets.ModelViewSet):
+    serializer_class = PaymentRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = PaymentRequest.objects.select_related(
+            'student',
+            'course'
+        )
+
+        if self.request.user.role == 'admin':
+            return queryset
+
+        if self.request.user.role == 'student':
+            return queryset.filter(student=self.request.user)
+
+        return PaymentRequest.objects.none()
+
+    def perform_create(self, serializer):
+        serializer.save(student=self.request.user)
+
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='verify-code',
+        permission_classes=[IsAuthenticated]
+    )
+    def verify_code(self, request):
+        code = request.data.get('code')
+        course_id = request.data.get('course')
+
+        if not code:
+            return Response(
+                {'detail': 'Enrollment code is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not course_id:
+            return Response(
+                {'detail': 'Course is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            payment_request = PaymentRequest.objects.get(
+                enrollment_code=code,
+                course_id=course_id,
+                student=request.user
+            )
+
+        except PaymentRequest.DoesNotExist:
+            return Response(
+                {'detail': 'Invalid enrollment code.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check payment approval
+        if payment_request.status != 'approved':
+            return Response(
+                {
+                    'detail':
+                    'This payment request has not been approved yet.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check whether code was already used
+        if payment_request.code_used:
+            return Response(
+                {
+                    'detail':
+                    'This enrollment code has already been used.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if already enrolled
+        if Enrollment.objects.filter(
+            student=request.user,
+            course_id=course_id
+        ).exists():
+            return Response(
+                {
+                    'detail':
+                    'You are already enrolled in this course.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Create enrollment
+        enrollment = Enrollment.objects.create(
+            student=request.user,
+            course_id=course_id,
+            status='active'
+        )
+
+        # Mark code as used
+        payment_request.code_used = True
+        payment_request.save(
+            update_fields=['code_used', 'updated_at']
+        )
+
+        return Response(
+            {
+                'message': 'Enrollment successful!',
+                'enrollment_id': str(enrollment.id)
+            },
+            status=status.HTTP_200_OK
+        )
+
 
 
 class DashboardStatsView(APIView):

@@ -14,6 +14,7 @@ import CourseDetails from './pages/CourseDetails';
 import CourseForm from './pages/CourseForm';
 import ForgetPassword from './pages/ForgetPassword';
 import ResetPassword from './pages/ResetPassword';
+import LessonDetails from './pages/LessonDetails';
 
 function App() {
   return (
@@ -58,9 +59,18 @@ function App() {
             />
 
             <Route
+              path="/lessons/:id"
+              element={
+                  <ProtectedRoute>
+                      <LessonDetails />
+                  </ProtectedRoute>
+              }
+          />
+
+            <Route
               path="/create-course"
               element={
-                <ProtectedRoute allowedRoles={['instructor']}>
+                <ProtectedRoute allowedRoles={['admin', 'instructor']}>
                   <CourseForm />
                 </ProtectedRoute>
               }
@@ -69,7 +79,7 @@ function App() {
             <Route
               path="/edit-course/:id"
               element={
-                <ProtectedRoute allowedRoles={['instructor']}>
+                <ProtectedRoute allowedRoles={['admin', 'instructor']}>
                   <CourseForm />
                 </ProtectedRoute>
               }

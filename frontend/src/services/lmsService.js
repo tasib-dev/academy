@@ -34,6 +34,16 @@ const lmsService = {
         return response.data;
     },
 
+    getLessons: async (courseId) => {
+        const response = await api.get(`/lms/lessons/?course=${courseId}`);
+        return response.data;
+    },
+
+    getLesson: async (lessonId) => {
+        const response = await api.get(`/lms/lessons/${lessonId}/`);
+        return response.data;
+    },
+
     createCourse: async (courseData) => {
         const response = await api.post('/lms/courses/', courseData);
         return response.data;
@@ -66,6 +76,33 @@ const lmsService = {
             course: courseId,
             student: user?.id,
         });
+        return response.data;
+    },
+
+
+    // Payment Requests
+    getPaymentRequests: async () => {
+        const response = await api.get('/lms/payment-requests/');
+        return response.data;
+    },
+
+    createPaymentRequest: async (paymentData) => {
+        const response = await api.post(
+            '/lms/payment-requests/',
+            paymentData
+        );
+        return response.data;
+    },
+
+    verifyEnrollmentCode: async (courseId, code) => {
+        const response = await api.post(
+            '/lms/payment-requests/verify-code/',
+            {
+                course: courseId,
+                code: code,
+            }
+        );
+
         return response.data;
     },
 

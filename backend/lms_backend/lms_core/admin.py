@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Course, Enrollment
+from .models import Category, Course, Lesson, Enrollment, PaymentRequest
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -32,3 +32,32 @@ class EnrollmentAdmin(admin.ModelAdmin):
     list_filter = ['status', 'enrolled_at']
     search_fields = ['student__email', 'course__title']
     ordering = ['-enrolled_at']
+
+@admin.register(Lesson)
+class LessonAdmin(admin.ModelAdmin):
+    list_display = ('title', 'course', 'order', 'created_at')
+    list_filter = ('course',)
+    search_fields = ('title', 'course__title')
+    ordering = ('course', 'order')    
+
+
+@admin.register(PaymentRequest)
+class PaymentRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        'name',
+        'google_account_email',
+        'course',
+        'bkash_number',
+        'transaction_id',
+        'status',
+        'created_at',
+    )
+
+    list_filter = ('status', 'course', 'created_at')
+
+    search_fields = (
+        'name',
+        'google_account_email',
+        'bkash_number',
+        'transaction_id',
+    )
