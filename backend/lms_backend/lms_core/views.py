@@ -4,6 +4,8 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import action
 from django.db.models import Count, Q
+from django.core.mail import send_mail
+from django.conf import settings
 
 from .models import Category, Course, Lesson, Enrollment, PaymentRequest
 from authentication.models import User
@@ -181,8 +183,52 @@ class PaymentRequestViewSet(viewsets.ModelViewSet):
         return PaymentRequest.objects.none()
 
     def perform_create(self, serializer):
-        serializer.save(student=self.request.user)
+        payment_request = serializer.save(
+            student=self.request.user
+        )
 
+        try:
+            send_mail(
+                subject='🔔 New Payment Request - LMS',
+                message=f"""
+    A new payment request has been submitted.
+
+    Student Name:
+    {payment_request.name}
+
+    Student Email:
+    {payment_request.google_account_email}
+
+    Course:
+    {payment_request.course.title}
+
+    bKash Number:
+    {payment_request.bkash_number}
+
+    Transaction ID:
+    {payment_request.transaction_id}
+
+    Status:
+    {payment_request.status}
+
+    Submitted At:
+    {payment_request.created_at}
+
+    Please log in to the Django Admin Panel to review this payment request.
+    """,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[
+                    settings.ADMIN_NOTIFICATION_EMAIL
+                ],
+                fail_silently=False,
+            )
+
+        except Exception as e:
+            print(
+                f"Payment request email notification failed: {e}"
+            )
+
+    
     @action(
         detail=False,
         methods=['post'],
