@@ -1,1 +1,3 @@
 production_data.json
+backend/lms_backend/.env
+backend/lms_backend/db.sqlite3
