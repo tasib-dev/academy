@@ -33,6 +33,7 @@ const CourseDetails = () => {
 
     const [enrollmentCode, setEnrollmentCode] = useState('');
     const [codeLoading, setCodeLoading] = useState(false);
+    const [paymentSubmitting, setPaymentSubmitting] = useState(false);
     
 
     useEffect(() => {
@@ -91,6 +92,10 @@ const CourseDetails = () => {
     const handlePaymentSubmit = async (e) => {
         e.preventDefault();
 
+        if (paymentSubmitting) return;
+
+        setPaymentSubmitting(true);
+
         try {
             const formData = new FormData();
 
@@ -135,6 +140,9 @@ const CourseDetails = () => {
                     '❌ Failed to submit payment information. Please try again.'
                 );
             }
+        }
+        finally {
+            setPaymentSubmitting(false);
         }
     };
 
@@ -555,12 +563,24 @@ const CourseDetails = () => {
 
             {/* Submit */}
             <button
-                type="button"
-                onClick={handlePaymentSubmit}
-                className="w-full rounded-lg bg-blue-600 px-5 py-3 font-bold text-white transition hover:bg-blue-700"
-            >
-                Submit Payment Information
-            </button>
+    type="button"
+    onClick={handlePaymentSubmit}
+    disabled={paymentSubmitting}
+    className={`w-full rounded-lg px-5 py-3 font-bold text-white transition ${
+        paymentSubmitting
+            ? 'bg-blue-400 cursor-not-allowed'
+            : 'bg-blue-600 hover:bg-blue-700'
+    }`}
+>
+    {paymentSubmitting ? (
+        <span className="flex items-center justify-center gap-2">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+            Submitting...
+        </span>
+    ) : (
+        'Submit Payment Information'
+    )}
+</button>
 
             {/* Back */}
             <button

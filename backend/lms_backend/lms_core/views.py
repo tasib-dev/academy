@@ -232,10 +232,7 @@ class PaymentRequestViewSet(viewsets.ModelViewSet):
             student=self.request.user
         )
 
-        threading.Thread(
-            target=send_payment_notification,
-            args=(payment_request,)
-        ).start()
+        send_payment_notification(payment_request)
 
 
     @action(
