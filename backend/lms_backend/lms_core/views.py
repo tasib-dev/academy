@@ -173,7 +173,7 @@ def send_payment_notification(payment_request):
 
         params = {
             'from': 'onboarding@resend.dev',
-            'to': [os.environ.get('RESEND_TEST_EMAIL')],
+            'to': [os.environ.get('ADMIN_EMAIL')],
             'subject': '🔔 New Payment Request - LMS',
             'html': f"""
                 <h2>🔔 New Payment Request - LMS</h2>
