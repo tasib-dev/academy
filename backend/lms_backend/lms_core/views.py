@@ -7,6 +7,8 @@ from django.db.models import Count, Q
 from django.core.mail import send_mail
 from django.conf import settings
 import threading
+import os
+import resend
 
 from .models import Category, Course, Lesson, Enrollment, PaymentRequest
 from authentication.models import User
@@ -167,39 +169,62 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
 def send_payment_notification(payment_request):
     try:
-        send_mail(
-            subject='🔔 New Payment Request - LMS',
-            message=f"""
-A new payment request has been submitted.
+        resend.api_key = os.environ.get('RESEND_API_KEY')
 
-Student Name:
-{payment_request.name}
+        params = {
+            'from': 'onboarding@resend.dev',
+            'to': [os.environ.get('RESEND_TEST_EMAIL')],
+            'subject': '🔔 New Payment Request - LMS',
+            'html': f"""
+                <h2>🔔 New Payment Request - LMS</h2>
 
-Student Email:
-{payment_request.google_account_email}
+                <p>A new payment request has been submitted.</p>
 
-Course:
-{payment_request.course.title}
+                <p>
+                    <strong>Student Name:</strong><br>
+                    {payment_request.name}
+                </p>
 
-bKash Number:
-{payment_request.bkash_number}
+                <p>
+                    <strong>Student Email:</strong><br>
+                    {payment_request.google_account_email}
+                </p>
 
-Transaction ID:
-{payment_request.transaction_id}
+                <p>
+                    <strong>Course:</strong><br>
+                    {payment_request.course.title}
+                </p>
 
-Status:
-{payment_request.status}
+                <p>
+                    <strong>bKash Number:</strong><br>
+                    {payment_request.bkash_number}
+                </p>
 
-Submitted At:
-{payment_request.created_at}
+                <p>
+                    <strong>Transaction ID:</strong><br>
+                    {payment_request.transaction_id}
+                </p>
 
-Please log in to the Django Admin Panel to review this payment request.
-""",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[
-                settings.ADMIN_NOTIFICATION_EMAIL
-            ],
-            fail_silently=False,
+                <p>
+                    <strong>Status:</strong><br>
+                    {payment_request.status}
+                </p>
+
+                <p>
+                    <strong>Submitted At:</strong><br>
+                    {payment_request.created_at}
+                </p>
+
+                <p>
+                    Please log in to the Django Admin Panel to review this payment request.
+                </p>
+            """,
+        }
+
+        response = resend.Emails.send(params)
+
+        print(
+            f"Payment notification email sent successfully: {response}"
         )
 
     except Exception as e:
